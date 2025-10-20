@@ -64,6 +64,12 @@ def upload_file():
             try:
                 # 스마트 엑셀 프로세서로 처리
                 processor = SmartExcelProcessor()
+                if not processor.worksheet:
+                    return jsonify({
+                        'success': False, 
+                        'message': '구글 스프레드시트에 연결할 수 없습니다. token.pickle 파일을 확인하세요.'
+                    })
+                
                 result = processor.process_file(temp_file_path)
                 
                 if result:
@@ -93,6 +99,15 @@ def upload_file():
 def status():
     """시스템 상태 확인"""
     try:
+        # 구글 인증 파일 존재 여부 확인
+        token_file = os.environ.get('GOOGLE_TOKEN_FILE', 'token.pickle')
+        if not os.path.exists(token_file):
+            return jsonify({
+                'success': False,
+                'status': 'no_token',
+                'message': '구글 인증 토큰 파일이 없습니다. token.pickle 파일을 업로드하세요.'
+            })
+        
         processor = SmartExcelProcessor()
         if processor.worksheet:
             records = processor.get_existing_data_from_sheets()
