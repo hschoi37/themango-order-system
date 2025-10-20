@@ -74,26 +74,41 @@ class SmartExcelProcessor:
             if gc is None:
                 try:
                     import pickle
+                    import base64
                     from google.auth.transport.requests import Request
                     
-                    # 환경 변수에서 토큰 파일 경로 확인
-                    token_file = os.environ.get('GOOGLE_TOKEN_FILE', 'token.pickle')
-                    
-                    if os.path.exists(token_file):
-                        with open(token_file, 'rb') as token:
-                            credentials = pickle.load(token)
+                    # 환경 변수에서 Base64 토큰 확인
+                    token_base64 = os.environ.get('GOOGLE_TOKEN_BASE64')
+                    if token_base64:
+                        # Base64 토큰을 디코딩하여 사용
+                        token_data = base64.b64decode(token_base64)
+                        credentials = pickle.loads(token_data)
                         
                         # 토큰 갱신 시도
                         if credentials and credentials.expired and credentials.refresh_token:
                             credentials.refresh(Request())
-                            with open(token_file, 'wb') as token:
-                                pickle.dump(credentials, token)
                         
                         gc = gspread.authorize(credentials)
-                        logger.info("OAuth 인증으로 구글 스프레드시트 연결 성공!")
+                        logger.info("OAuth 인증으로 구글 스프레드시트 연결 성공! (Base64 토큰 사용)")
                     else:
-                        logger.error("인증 파일을 찾을 수 없습니다. oauth_setup.py를 실행하거나 환경 변수를 설정하세요.")
-                        return None
+                        # 기존 파일 방식 시도
+                        token_file = os.environ.get('GOOGLE_TOKEN_FILE', 'token.pickle')
+                        
+                        if os.path.exists(token_file):
+                            with open(token_file, 'rb') as token:
+                                credentials = pickle.load(token)
+                            
+                            # 토큰 갱신 시도
+                            if credentials and credentials.expired and credentials.refresh_token:
+                                credentials.refresh(Request())
+                                with open(token_file, 'wb') as token:
+                                    pickle.dump(credentials, token)
+                            
+                            gc = gspread.authorize(credentials)
+                            logger.info("OAuth 인증으로 구글 스프레드시트 연결 성공! (파일 토큰 사용)")
+                        else:
+                            logger.error("인증 파일을 찾을 수 없습니다. oauth_setup.py를 실행하거나 환경 변수를 설정하세요.")
+                            return None
                     
                 except Exception as e:
                     logger.error(f"OAuth 인증 실패: {e}")
